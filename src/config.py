@@ -142,7 +142,7 @@ class CleaningConfig:
     MAX_BATCH_FILE_SIZE = 90 * 1024 * 1024  # 90MB
     MAX_REQUESTS_PER_FILE = 49000
     MAX_CONCURRENT_BATCHES = 1  # To manage queue/token limits
-    POLL_INTERVAL = 300  # Seconds
+    POLL_INTERVAL = 600  # Seconds
     
     # Image Processing
     IMAGE_RESIZE_DIM = 512
@@ -153,6 +153,37 @@ class CleaningConfig:
         cls.BATCH_INPUT_DIR.mkdir(parents=True, exist_ok=True)
         cls.BATCH_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         cls.CLEANED_CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+# ============================================================================
+# PREPARING CONFIGURATION
+# ============================================================================
+class PrepConfig:
+    """Data formating configuration."""
+    
+    # --- Paths ---
+    INPUT_CSV_PATH = PROJECT_ROOT / "data" / "processed" / "cleaned_furniture.csv"  # Path to your local CSV
+    IMAGES_ROOT_DIR = PROJECT_ROOT / "data" / "raw"     # Root folder where local_path is relative to
+    OUTPUT_DIR = PROJECT_ROOT / "data" / "webdataset_shards" # Where to save the output shards
+
+    # --- Image Settings ---
+    IMAGE_SIZE = 224
+    PADDING_COLOR = (255, 255, 255) # White padding
+    IMAGE_QUALITY = 95              # JPEG quality for storage
+
+    # --- Data Splitting ---
+    SEED = 42
+    TRAIN_RATIO = 0.8
+    VAL_RATIO = 0.1
+    TEST_RATIO = 0.1
+    # Note: Train + Val + Test must equal 1.0
+
+    # --- Sharding Settings ---
+    MAX_SHARD_SIZE = 500 * 1024 * 1024  # 500MB per shard (good for S3)
+    MAX_COUNT_PER_SHARD = 1000          # Approx images per shard
+
+    # --- Mini Train ---
+    # How many shards from the training set to copy to 'mini_train'
+    MINI_TRAIN_SHARD_COUNT = 5
 
 
 # ============================================================================

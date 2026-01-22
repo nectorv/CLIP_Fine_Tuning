@@ -94,10 +94,8 @@ class Orchestrator:
         
         # 1. Download all completed outputs
         for bid, info in self.state.state["batches"].items():
-            print(info)
             if info["status"] == "completed" and info.get("output_file_id"):
                 local_out = CleaningConfig.BATCH_OUTPUT_DIR / f"output_{bid}.jsonl"
-                print(local_out)
                 
                 if not local_out.exists():
                     print(f"Downloading results for {bid}...")
