@@ -17,11 +17,8 @@ def write_dataset(df, output_folder, image_root_dir, config):
     
     with wds.ShardWriter(pattern, maxsize=config.MAX_SHARD_SIZE, maxcount=config.MAX_COUNT_PER_SHARD) as sink:
         for index, row in tqdm(df.iterrows(), total=len(df)):
-            
-            # 1. Resolve Path
             full_path = os.path.join(image_root_dir, row['local_path'])
             
-            # 2. Process Image
             img = process_image(
                 full_path, 
                 target_size=config.IMAGE_SIZE, 
@@ -29,11 +26,10 @@ def write_dataset(df, output_folder, image_root_dir, config):
             )
             
             if img is None:
-                continue # Skip corrupt images
+                continue
                 
-            # 3. Write to Shard
             sink.write({
-                "__key__": f"{index:09d}", # Unique ID
+                "__key__": f"{index:09d}",
                 "jpg": image_to_bytes(img, config.IMAGE_QUALITY),
                 "txt": row['prompt'],
                 "json": {

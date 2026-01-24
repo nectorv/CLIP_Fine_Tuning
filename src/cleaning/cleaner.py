@@ -102,14 +102,11 @@ def prepare_batch_jsonl(
     Prepare SPLIT JSONL files (max 95MB each) for OpenAI Batch API.
     """
     print("Reading CSV file...")
-    print("CSV loaded")
     df = pd.read_csv(csv_path)
     
-    # 1. Setup Constraints
-    MAX_BYTES = 90 * 1024 * 1024  # 90 MB safety limit (OpenAI max is 100MB)
-    MAX_REQUESTS = 49000          # 49k safety limit (OpenAI max is 50k)
+    MAX_BYTES = 90 * 1024 * 1024
+    MAX_REQUESTS = 49000
     
-    # 2. Check Existing IDs (across ALL jsonl files in directory)
     existing_ids = set()
     output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -124,7 +121,6 @@ def prepare_batch_jsonl(
                     except: continue
         print(f"Found {len(existing_ids)} existing requests. Skipping these.")
 
-    # 3. Initialization
     requests_created = 0
     failed_count = 0
     
@@ -133,10 +129,8 @@ def prepare_batch_jsonl(
     current_file_size = 0
     current_file_count = 0
     
-    # If file exists and we are appending, check its size first
     if current_file_path.exists():
         current_file_size = current_file_path.stat().st_size
-        # Count lines roughly or just start new file if it's close to limit
         if current_file_size > MAX_BYTES:
             file_index += 1
             current_file_path = output_dir / f"batch_input_{file_index:03d}.jsonl"
@@ -146,18 +140,12 @@ def prepare_batch_jsonl(
 
     print(f"\nProcessing images. Current batch file: {current_file_path.name}")
     
-    # Open the first file handle
     f = open(current_file_path, "a" if incremental else "w", encoding="utf-8")
 
     try:
         for idx, row in tqdm(df.iterrows(), total=len(df), desc="Preparing batch"):
-            # SKIP if already done
             if str(idx) in existing_ids:
                 continue
-            
-            #to delete
-            if requests_created >= 10:
-                print("🚀 Smoke test limit reached. Stopping prepare...")
                 break
 
             # --- Image Processing ---

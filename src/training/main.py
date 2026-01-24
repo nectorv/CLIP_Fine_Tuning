@@ -5,35 +5,67 @@ from torch.cuda.amp import GradScaler, autocast
 import wandb
 import os
 import glob
+import argparse
 
-from config import parse_args
 from utils import S3Manager, EarlyStopper, find_max_batch_size
 from data import get_wds_pipeline, get_transforms
 from model import get_model
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Fine-tune CLIP on Furniture Dataset")
+
+    # --- Infrastructure & Data ---
+    parser.add_argument("--data_dir", type=str, default="/tmp/furniture_data", help="Local path for data")
+    parser.add_argument("--s3_bucket", type=str, required=True, help="S3 Bucket name")
+    parser.add_argument("--s3_prefix", type=str, default="data/train", help="S3 folder path")
+    parser.add_argument("--output_dir", type=str, default="./checkpoints")
+    parser.add_argument("--mini_train", action="store_true", help="Use only a subset of data for testing")
+
+    # --- Training Setup ---
+    parser.add_argument("--scenario", type=str, default="dual_lora", 
+                        choices=["zero_shot", "linear_probe", "dual_lora", "vision_lora", "text_lora"],
+                        help="Ablation study scenario")
+    parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--effective_batch_size", type=int, default=1024, help="Target accumulated batch size")
+    parser.add_argument("--micro_batch_size", type=int, default=0, help="Physical batch size (0 = auto-find)")
+    parser.add_argument("--num_workers", type=int, default=4)
+    parser.add_argument("--seed", type=int, default=42)
+
+    # --- Optimization ---
+    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--wd", type=float, default=0.1, help="Weight Decay")
+    parser.add_argument("--warmup_steps", type=int, default=100)
+    parser.add_argument("--grad_clip", type=float, default=1.0)
+    parser.add_argument("--augmentation", type=str, default="simple", choices=["simple", "advanced"], help="simple=Flip+Crop, advanced=Trivial+Erase")
+
+    # --- LoRA Specifics ---
+    parser.add_argument("--lora_r", type=int, default=16)
+    parser.add_argument("--lora_alpha", type=int, default=32)
+    parser.add_argument("--lora_dropout", type=float, default=0.05)
+
+    # --- WandB & Resume ---
+    parser.add_argument("--wandb_project", type=str, default="clip-furniture-finetune")
+    parser.add_argument("--resume_from_checkpoint", action="store_true", help="Resume from S3 if available")
+
+    args = parser.parse_args()
+    return args
+
 def count_samples(folder_path):
-    """Estimation rapide ou précise du nombre d'images (nécessaire pour WebDataset + Tqdm)"""
-    # Si vous avez un fichier metadata.json c'est mieux, sinon on estime
-    # Pour l'instant, on met une valeur par défaut ou on compte si on a le temps
-    # Pour WebDataset, souvent on hardcode ou on passe l'info en argument
-    return 50000 # Valeur par défaut pour votre dataset
+    """Estimate number of samples in the dataset."""
+    return 50000
 
 def main():
     args = parse_args()
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
-    # 1. Setup WandB
     wandb.init(project=args.wandb_project, config=args, resume="allow", name=f"{args.scenario}_lr{args.lr}")
 
-    # 2. Data Prep (Téléchargement Local depuis S3)
     s3_mgr = S3Manager(args.s3_bucket)
     
-    # Définition des dossiers locaux cibles
     local_train = os.path.join(args.data_dir, "mini_train" if args.mini_train else "train")
     local_val = os.path.join(args.data_dir, "validation")
     
-    # Téléchargement (On suppose que s3_prefix contient les sous-dossiers train/validation)
-    # Exemple S3 structure: s3://bucket/data/train/shard-000.tar
     s3_train_prefix = f"{args.s3_prefix}/{'mini_train' if args.mini_train else 'train'}"
     s3_val_prefix = f"{args.s3_prefix}/validation"
     
@@ -49,10 +81,7 @@ def main():
     # Mini-train = 1000 (environ), Full = 50000.
     train_len = 1000 if args.mini_train else 45000 # Ajustez selon votre vrai split
     val_len = 500 if args.mini_train else 5000
-
-    train_dataset = get_wds_pipeline(
-        local_train, processor, transform=transform, is_train=True, epoch_len=train_len
-    )
+train_len = 1000 if args.mini_train else 45000
     val_dataset = get_wds_pipeline(
         local_val, processor, transform=None, is_train=False, epoch_len=val_len
     )
@@ -65,30 +94,29 @@ def main():
         micro_bs = 64 
         print(f"⚠️ WDS Mode: Defaulting micro_batch to {micro_bs} (Batch Finder skipped)")
     else:
+    if args.micro_batch_size == 0:
+        micro_bs = 64 
+        print(f"⚠️ WDS Mode: Defaulting micro_batch to {micro_bs} (Batch Finder skipped)")
+    else:
         micro_bs = args.micro_batch_size
     
     grad_accum_steps = args.effective_batch_size // micro_bs
 
-    # DataLoader standard de PyTorch fonctionne très bien avec l'objet WebDataset
     train_loader = DataLoader(train_dataset, batch_size=micro_bs, num_workers=args.num_workers)
     val_loader = DataLoader(val_dataset, batch_size=micro_bs, num_workers=args.num_workers)
     
-    # 4. Optimizer & Loss
-    # Use 8-bit AdamW
     optimizer = bnb.optim.AdamW8bit(
         filter(lambda p: p.requires_grad, model.parameters()), 
         lr=args.lr, 
         weight_decay=args.wd
     )
     
-    # Warmup Scheduler
     total_steps = len(train_loader) * args.epochs
     scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, total_steps=total_steps, pct_start=0.1)
     
     scaler = GradScaler()
     early_stopper = EarlyStopper(patience=2)
 
-    # 5. Resume Checkpoint Logic
     start_epoch = 0
     checkpoint_name = f"{args.scenario}_checkpoint.pt"
     if args.resume_from_checkpoint:
@@ -98,16 +126,7 @@ def main():
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             start_epoch = checkpoint['epoch'] + 1
             print(f"⏩ Resuming from epoch {start_epoch}")
-
-    # 6. Training Loop
-    print("🚀 Starting Training...")
-    for epoch in range(start_epoch, args.epochs):
-        model.train()
-        total_loss = 0
-        
-        for step, batch in enumerate(train_loader):
-            input_ids = batch["input_ids"].to(device)
-            pixel_values = batch["pixel_values"].to(device)
+es = batch["pixel_values"].to(device)
 
             # Mixed Precision Forward
             with autocast():
@@ -122,16 +141,13 @@ def main():
                 scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
                 
-                scaler.step(optimizer)
-                scaler.update()
-                optimizer.zero_grad()
-                scheduler.step()
-                
-                wandb.log({"train_loss": loss.item() * grad_accum_steps, "lr": scheduler.get_last_lr()[0]})
+            with autocast():
+                outputs = model(input_ids=input_ids, pixel_values=pixel_values, return_loss=True)
+                loss = outputs.loss / grad_accum_steps
 
-        # Validation
-        model.eval()
-        val_loss = 0
+            scaler.scale(loss).backward()
+
+            if (step + 1) % grad_accum_steps == 0:
         with torch.no_grad():
             for batch in val_loader:
                 input_ids = batch["input_ids"].to(device)

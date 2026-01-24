@@ -9,36 +9,26 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# ============================================================================
-# PROJECT ROOT
-# ============================================================================
 PROJECT_ROOT = Path(__file__).parent.parent
 
-# ============================================================================
-# DATA PATHS
-# ============================================================================
+
 class DataPaths:
     """Paths for data directories and files."""
     
-    # Raw data directories (within project)
     RAW_DIR = PROJECT_ROOT / "data" / "raw"
     RAW_CSV_PATH = RAW_DIR / "furniture_dataset_cleaned.csv"
-    IMAGE_DIR = RAW_DIR / "downloaded_images"  # Training images
+    IMAGE_DIR = RAW_DIR / "downloaded_images"
     
-    # Processed data
     PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
     CLEANED_CSV_PATH = PROCESSED_DIR / "cleaned_furniture.csv"
     
-    # Embeddings
     EMBEDDINGS_DIR = PROJECT_ROOT / "data" / "embeddings"
     MASTER_VECTORS_PATH = EMBEDDINGS_DIR / "master_vectors.parquet"
     
-    # Evaluation
     EVALUATION_DIR = PROJECT_ROOT / "data" / "evaluation"
-    EVALUATION_IMAGE_DIR = EVALUATION_DIR  # Evaluation images
+    EVALUATION_IMAGE_DIR = EVALUATION_DIR
     
     @classmethod
     def ensure_dirs(cls):
@@ -50,9 +40,6 @@ class DataPaths:
         cls.EVALUATION_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# ============================================================================
-# MODEL PATHS
-# ============================================================================
 class ModelPaths:
     """Paths for model storage."""
     
@@ -67,86 +54,61 @@ class ModelPaths:
         cls.CHECKPOINTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# ============================================================================
-# MODEL CONFIGURATION
-# ============================================================================
 class ModelConfig:
     """CLIP model configuration."""
     
-    # Base model from HuggingFace
     MODEL_NAME = os.getenv("MODEL_NAME", "openai/clip-vit-base-patch32")
-    
-    # Image preprocessing
     IMAGE_SIZE = 224
     IMAGE_MEAN = [0.485, 0.456, 0.406]
     IMAGE_STD = [0.229, 0.224, 0.225]
-    
-    # Text preprocessing
-    MAX_TEXT_LENGTH = 77  # CLIP's default
+    MAX_TEXT_LENGTH = 77
 
 
-# ============================================================================
-# TRAINING HYPERPARAMETERS
-# ============================================================================
 class TrainingConfig:
     """Hyperparameters for CLIP fine-tuning."""
     
-    # Batch sizes
     BATCH_SIZE = 32
     VAL_BATCH_SIZE = 64
-    EMBEDDING_BATCH_SIZE = 128  # For faster embedding generation
+    EMBEDDING_BATCH_SIZE = 128
     
-    # Learning rates
-    INITIAL_LR = 1e-4  # For projection layers (frozen backbone)
-    UNFROZEN_LR = 5e-6  # For unfrozen model (lower LR)
+    INITIAL_LR = 1e-4
+    UNFROZEN_LR = 5e-6
     
-    # Training schedule
     EPOCHS = 5
-    FREEZE_EPOCHS = 1  # Number of epochs with frozen backbones
+    FREEZE_EPOCHS = 1
     
-    # Optimization
     WEIGHT_DECAY = 0.01
     WARMUP_STEPS = 500
     
-    # Validation
-    VAL_SPLIT = 0.1  # 10% for validation
+    VAL_SPLIT = 0.1
     
-    # Device
     DEVICE = "cuda" if os.getenv("CUDA_VISIBLE_DEVICES") else "cpu"
     
-    # Checkpointing
     SAVE_EVERY_N_EPOCHS = 1
     EVAL_EVERY_N_STEPS = 500
 
 
-# ============================================================================
-# DATA CLEANING CONFIGURATION
-# ============================================================================
 class CleaningConfig:
     """Configuration for GPT-5 nano VLM batch cleaning."""
     
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    MODEL_NAME = "gpt-5-nano"  # Vision Language Model
+    MODEL_NAME = "gpt-5-nano"
     
-    # Batch API paths
     BATCH_INPUT_PATH = PROJECT_ROOT / "data" / "batch_workspace" / "input_jsonl"
     BATCH_OUTPUT_DIR = PROJECT_ROOT / "data" / "batch_workspace" / "output_jsonl"
     CLEANED_CSV_PATH = PROJECT_ROOT / "data" / "processed" / "cleaned_furniture.csv"
     RAW_CSV_PATH = PROJECT_ROOT / "data" / "raw" / "furniture_dataset_cleaned.csv"
-    IMAGE_DIR = PROJECT_ROOT / "data" / "raw" / "downloaded_images"  # Training images
+    IMAGE_DIR = PROJECT_ROOT / "data" / "raw" / "downloaded_images"
     BATCH_WORKSPACE = PROJECT_ROOT / "data" / "batch_workspace"
     BATCH_INPUT_DIR = BATCH_WORKSPACE / "input_jsonl"
     STATE_FILE = BATCH_WORKSPACE / "batch_state.json"
     
-    # Limits
-    MAX_BATCH_FILE_SIZE = 90 * 1024 * 1024  # 90MB
+    MAX_BATCH_FILE_SIZE = 90 * 1024 * 1024
     MAX_REQUESTS_PER_FILE = 49000
-    MAX_CONCURRENT_BATCHES = 1  # To manage queue/token limits
-    POLL_INTERVAL = 600  # Seconds
+    MAX_CONCURRENT_BATCHES = 1
+    POLL_INTERVAL = 600
     
-    # Image Processing
     IMAGE_RESIZE_DIM = 512
-
 
     @classmethod
     def ensure_dirs(cls):
@@ -154,41 +116,29 @@ class CleaningConfig:
         cls.BATCH_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         cls.CLEANED_CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-# ============================================================================
-# PREPARING CONFIGURATION
-# ============================================================================
+
 class PrepConfig:
-    """Data formating configuration."""
+    """Data formatting configuration."""
     
-    # --- Paths ---
-    INPUT_CSV_PATH = PROJECT_ROOT / "data" / "processed" / "cleaned_furniture.csv"  # Path to your local CSV
-    IMAGES_ROOT_DIR = PROJECT_ROOT / "data" / "raw"     # Root folder where local_path is relative to
-    OUTPUT_DIR = PROJECT_ROOT / "data" / "webdataset_shards" # Where to save the output shards
+    INPUT_CSV_PATH = PROJECT_ROOT / "data" / "processed" / "cleaned_furniture.csv"
+    IMAGES_ROOT_DIR = PROJECT_ROOT / "data" / "raw"
+    OUTPUT_DIR = PROJECT_ROOT / "data" / "webdataset_shards"
 
-    # --- Image Settings ---
     IMAGE_SIZE = 224
-    PADDING_COLOR = (255, 255, 255) # White padding
-    IMAGE_QUALITY = 95              # JPEG quality for storage
+    PADDING_COLOR = (255, 255, 255)
+    IMAGE_QUALITY = 95
 
-    # --- Data Splitting ---
     SEED = 42
     TRAIN_RATIO = 0.8
     VAL_RATIO = 0.1
     TEST_RATIO = 0.1
-    # Note: Train + Val + Test must equal 1.0
 
-    # --- Sharding Settings ---
-    MAX_SHARD_SIZE = 500 * 1024 * 1024  # 500MB per shard (good for S3)
-    MAX_COUNT_PER_SHARD = 1000          # Approx images per shard
+    MAX_SHARD_SIZE = 500 * 1024 * 1024
+    MAX_COUNT_PER_SHARD = 1000
 
-    # --- Mini Train ---
-    # How many shards from the training set to copy to 'mini_train'
     MINI_TRAIN_SHARD_COUNT = 5
 
 
-# ============================================================================
-# EMBEDDING CONFIGURATION
-# ============================================================================
 class EmbeddingConfig:
     """Configuration for embedding generation."""
     
@@ -197,27 +147,20 @@ class EmbeddingConfig:
     DEVICE = TrainingConfig.DEVICE
 
 
-# ============================================================================
-# ARENA CONFIGURATION
-# ============================================================================
 class ArenaConfig:
     """Configuration for the evaluation Arena."""
     
     RESULTS_CSV = PROJECT_ROOT / "arena_results.csv"
-    TOP_K = 4  # Number of results to display per method
-    WINDOW_SIZE = (1920, 1080)  # Full-screen window
-    RANDOMIZE_ORDER = True  # Blind test mode
+    TOP_K = 4
+    WINDOW_SIZE = (1920, 1080)
+    RANDOMIZE_ORDER = True
 
 
-# ============================================================================
-# INITIALIZATION
-# ============================================================================
 def initialize_directories():
     """Create all necessary directories."""
     DataPaths.ensure_dirs()
     ModelPaths.ensure_dirs()
 
 
-# Initialize on import
 initialize_directories()
 
