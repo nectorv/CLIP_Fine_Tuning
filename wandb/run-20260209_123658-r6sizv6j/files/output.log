@@ -1,0 +1,18 @@
+🔄 Syncing data from s3://furniture-clip-dataset-v1/dataset-clip/ to /tmp/furniture_data...
+✅ Sync complete. Exit code: 0
+📦 Local image count after sync: 0
+📦 Found 73 tar shards. Extracting...
+⚠️ Failed to extract /tmp/furniture_data/train/shard-000004.tar: [Errno 13] Permission denied: '/tmp/furniture_data/000005295.jpg'
+⚠️ Failed to extract /tmp/furniture_data/train/shard-000002.tar: [Errno 13] Permission denied: '/tmp/furniture_data/000018787.jpg'
+⚠️ Failed to extract /tmp/furniture_data/train/shard-000001.tar: [Errno 13] Permission denied: '/tmp/furniture_data/000030315.jpg'
+⚠️ Failed to extract /tmp/furniture_data/train/shard-000003.tar: [Errno 13] Permission denied: '/tmp/furniture_data/000012634.jpg'
+⚠️ Failed to extract /tmp/furniture_data/train/shard-000000.tar: [Errno 13] Permission denied: '/tmp/furniture_data/000012899.jpg'
+✅ Extracted 68/73 shards
+📦 Local image count after extraction: 66603
+🏗️ Building model for scenario: dual_lora
+Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. `use_fast=True` will be the default behavior in v4.52, even if the model was saved with a slow processor. This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`.
+🔓 Applied LoRA to encoders + Unfrozen Projections
+⚠️ MINI TRAIN MODE: Using only 1000 images.
+🔍 Searching for max batch size...
+✅ Batch size 16 OK.
+✅ Batch size 32 OK.

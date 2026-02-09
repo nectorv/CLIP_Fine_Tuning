@@ -1,0 +1,35 @@
+{
+  "os": "Linux-6.8.0-1030-azure-x86_64-with-glibc2.39",
+  "python": "CPython 3.12.1",
+  "startedAt": "2026-02-09T12:12:57.184088Z",
+  "args": [
+    "--s3_bucket",
+    "furniture-clip-dataset-v1",
+    "--mini_train",
+    "--micro_batch_size",
+    "0"
+  ],
+  "program": "/workspaces/CLIP_Fine_Tuning/src/training/main.py",
+  "codePath": "src/training/main.py",
+  "codePathLocal": "src/training/main.py",
+  "git": {
+    "remote": "https://github.com/nectorv/CLIP_Fine_Tuning",
+    "commit": "a7fdbc856a1bd4618504f2cdcd1d82ec016c612f"
+  },
+  "email": "nessi.victor@gmail.com",
+  "root": "/workspaces/CLIP_Fine_Tuning",
+  "host": "codespaces-d9ae48",
+  "executable": "/home/codespace/.python/current/bin/python",
+  "cpu_count": 1,
+  "cpu_count_logical": 2,
+  "disk": {
+    "/": {
+      "total": "33636024320",
+      "used": "20177731584"
+    }
+  },
+  "memory": {
+    "total": "8329543680"
+  },
+  "writerId": "pv0yicp5gbhkgp3zhrggs6dfsduewrrv"
+}

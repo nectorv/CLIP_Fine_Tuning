@@ -1,0 +1,11 @@
+{"time":"2026-02-09T12:29:58.065830869Z","level":"INFO","msg":"stream: starting","core version":"0.24.2"}
+{"time":"2026-02-09T12:29:58.319890889Z","level":"INFO","msg":"stream: created new stream","id":"yfyipsa7"}
+{"time":"2026-02-09T12:29:58.320120914Z","level":"INFO","msg":"stream: started","id":"yfyipsa7"}
+{"time":"2026-02-09T12:29:58.320413562Z","level":"INFO","msg":"handler: started","stream_id":"yfyipsa7"}
+{"time":"2026-02-09T12:29:58.320481603Z","level":"INFO","msg":"writer: started","stream_id":"yfyipsa7"}
+{"time":"2026-02-09T12:29:58.320508873Z","level":"INFO","msg":"sender: started","stream_id":"yfyipsa7"}
+{"time":"2026-02-09T12:30:02.472228655Z","level":"INFO","msg":"stream: closing","id":"yfyipsa7"}
+{"time":"2026-02-09T12:30:03.105806658Z","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-02-09T12:30:03.330964738Z","level":"INFO","msg":"handler: closed","stream_id":"yfyipsa7"}
+{"time":"2026-02-09T12:30:03.331109915Z","level":"INFO","msg":"sender: closed","stream_id":"yfyipsa7"}
+{"time":"2026-02-09T12:30:03.331132703Z","level":"INFO","msg":"stream: closed","id":"yfyipsa7"}

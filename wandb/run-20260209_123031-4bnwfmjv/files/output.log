@@ -1,0 +1,13 @@
+🔄 Syncing data from s3://furniture-clip-dataset-v1/dataset-clip/ to /tmp/furniture_data...
+✅ Sync complete. Exit code: 0
+📦 Local image count after sync: 0
+🏗️ Building model for scenario: dual_lora
+Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. `use_fast=True` will be the default behavior in v4.52, even if the model was saved with a slow processor. This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`.
+🔓 Applied LoRA to encoders + Unfrozen Projections
+⚠️ MINI TRAIN MODE: Using only 1000 images.
+Traceback (most recent call last):
+  File "/workspaces/CLIP_Fine_Tuning/src/training/main.py", line 148, in <module>
+    main()
+  File "/workspaces/CLIP_Fine_Tuning/src/training/main.py", line 32, in main
+    raise ValueError(
+ValueError: No images found after S3 sync. Check --s3_bucket, --s3_prefix, and --data_dir.

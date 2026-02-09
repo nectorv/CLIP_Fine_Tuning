@@ -3,6 +3,7 @@ torch>=2.0.0
 transformers>=4.30.0
 sentence-transformers>=2.2.0
 open-clip-torch>=2.20.0
+bitsandbytes
 
 # Data Processing
 scikit-learn
@@ -18,11 +19,14 @@ aiohttp>=3.8.0
 
 # Visualization
 matplotlib>=3.7.0
+WandB
 
 # Utilities
 python-dotenv>=1.0.0
 tqdm>=4.65.0
 pydantic>=2.0.0
+boto3
+peft
 
 # Optional: For better performance
 accelerate>=0.20.0

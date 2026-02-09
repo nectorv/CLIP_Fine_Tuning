@@ -1,8 +1,12 @@
 import os
+import shutil
+import tarfile
 import boto3
 import torch
 import glob
 from tqdm import tqdm
+
+from src.config import TrainingRunConfig
 
 class S3Manager:
     def __init__(self, bucket_name):
@@ -16,8 +20,22 @@ class S3Manager:
         
         # Note: For 50k files, 'aws s3 sync' via subprocess is faster than boto3 loop
         print(f"🔄 Syncing data from s3://{self.bucket_name}/{s3_prefix} to {local_dir}...")
-        os.system(f"aws s3 sync s3://{self.bucket_name}/{s3_prefix} {local_dir} --quiet")
-        print("✅ Sync complete.")
+        aws_cli = shutil.which("aws")
+        if not aws_cli:
+            print("⚠️ AWS CLI not found in PATH. Install/configure it, or provide a local dataset path.")
+            return
+
+        exit_code = os.system(f"{aws_cli} s3 sync s3://{self.bucket_name}/{s3_prefix} {local_dir}")
+        print(f"✅ Sync complete. Exit code: {exit_code}")
+
+        image_count = self._count_images(local_dir)
+        print(f"📦 Local image count after sync: {image_count}")
+
+        if image_count == 0:
+            extracted = self._extract_shards(local_dir)
+            if extracted > 0:
+                image_count = self._count_images(local_dir)
+                print(f"📦 Local image count after extraction: {image_count}")
 
     def upload_checkpoint(self, local_path, s3_path):
         """Uploads a checkpoint to S3"""
@@ -33,6 +51,36 @@ class S3Manager:
         except Exception as e:
             print("⚠️ No checkpoint found in S3 to resume from.")
             return False
+
+    def _count_images(self, local_dir):
+        image_count = 0
+        for root, _, files in os.walk(local_dir):
+            image_count += sum(1 for file in files if file.endswith(("jpg", "jpeg", "png")))
+        return image_count
+
+    def _extract_shards(self, local_dir):
+        tar_paths = []
+        for root, _, files in os.walk(local_dir):
+            for file in files:
+                if file.endswith(".tar"):
+                    tar_paths.append(os.path.join(root, file))
+
+        if not tar_paths:
+            print("⚠️ No .tar shards found to extract.")
+            return 0
+
+        print(f"📦 Found {len(tar_paths)} tar shards. Extracting...")
+        extracted = 0
+        for tar_path in tar_paths:
+            try:
+                with tarfile.open(tar_path, "r") as tar:
+                    tar.extractall(path=local_dir)
+                extracted += 1
+            except Exception as e:
+                print(f"⚠️ Failed to extract {tar_path}: {e}")
+
+        print(f"✅ Extracted {extracted}/{len(tar_paths)} shards")
+        return extracted
 
 class EarlyStopper:
     def __init__(self, patience=2, min_delta=0.001):
@@ -53,17 +101,20 @@ class EarlyStopper:
 
 def find_max_batch_size(model, dataset, device="cuda"):
     """Heuristic to find max physical batch size"""
-    print("🔍 Searching for max batch size...")
-    batch_size = 16
+    if len(dataset) == 0:
+        print("⚠️ Empty dataset detected. Skipping batch size search.")
+        return 32
+    print("🔍 Searching for max batch size...", flush=True)
+    batch_size = TrainingRunConfig.BATCH_SEARCH_START
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4) # Dummy optimizer
     
     model.train()
     try:
         while True:
+            # Try a forward/backward pass
             try:
-                # Créer un loader temporaire
-                dummy_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
-                # WDS modif: utiliser next(iter()) au lieu de dataset[...]
+                print(f"🧪 Trying batch size {batch_size}...", flush=True)
+                dummy_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
                 batch = next(iter(dummy_loader))
                 
                 pixel_values = batch["pixel_values"].to(device)
@@ -75,20 +126,20 @@ def find_max_batch_size(model, dataset, device="cuda"):
                 optimizer.step()
                 optimizer.zero_grad()
                 
-                print(f"✅ Batch size {batch_size} OK.")
+                print(f"✅ Batch size {batch_size} OK.", flush=True)
                 batch_size *= 2
                 
-                if batch_size > 512: # Safety cap
+                if batch_size > TrainingRunConfig.BATCH_SEARCH_MAX: # Safety cap
                     break
             except torch.cuda.OutOfMemoryError:
-                print(f"💥 OOM at batch size {batch_size}.")
+                print(f"💥 OOM at batch size {batch_size}.", flush=True)
                 torch.cuda.empty_cache()
                 batch_size //= 2
                 break
     except Exception as e:
-         print(f"⚠️ Error during batch search: {e}")
-         batch_size = 32 # Fallback
+        print(f"⚠️ Error during batch search: {e}", flush=True)
+        batch_size = TrainingRunConfig.BATCH_SEARCH_FALLBACK # Fallback
     
-    final_batch = max(32, batch_size) # Ensure reasonable min
-    print(f"🎯 Max physical batch size set to: {final_batch}")
+    final_batch = max(TrainingRunConfig.BATCH_SEARCH_MIN, batch_size) # Ensure reasonable min
+    print(f"🎯 Max physical batch size set to: {final_batch}", flush=True)
     return final_batch

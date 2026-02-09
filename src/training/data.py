@@ -1,48 +1,63 @@
 import os
-import webdataset as wds
-import torch
-from torchvision import transforms
 from PIL import Image
+from torch.utils.data import Dataset
+from torchvision import transforms
+from transformers import CLIPProcessor
 
-def identity(x):
-    return x
+from src.config import ModelConfig, TrainingRunConfig
 
-def get_wds_pipeline(
-    data_dir, 
-    processor, 
-    transform=None, 
-    is_train=True, 
-    batch_size=64,
-    epoch_len=10000  # Nombre d'échantillons estimé pour définir la taille d'une époque
-):
-    """
-    Crée un DataLoader basé sur WebDataset.
-    """
-    # 1. Trouver les shards (fichiers .tar)
-    # data_dir ressemble à /tmp/data/train
-    shards = [os.path.join(data_dir, f) for f in os.listdir(data_dir) if f.endswith('.tar')]
-    
-    if not shards:
-        raise FileNotFoundError(f"❌ Aucun fichier .tar trouvé dans {data_dir}")
+class FurnitureDataset(Dataset):
+    def __init__(self, data_dir, processor, transform=None, mini=False):
+        self.data_dir = data_dir
+        self.processor = processor
+        self.transform = transform
         
-    print(f"📦 Trouvé {len(shards)} shards dans {data_dir}")
+        # Load all image paths
+        self.image_paths = []
+        # Supposons une structure dossier : classe/image.jpg
+        for root, _, files in os.walk(data_dir):
+            for file in files:
+                if file.endswith(('jpg', 'jpeg', 'png')):
+                    self.image_paths.append(os.path.join(root, file))
+        
+        if mini:
+            print(f"⚠️ MINI TRAIN MODE: Using only {TrainingRunConfig.MINI_TRAIN_LIMIT} images.")
+            self.image_paths = self.image_paths[:TrainingRunConfig.MINI_TRAIN_LIMIT]
 
-    # 2. Définir le pipeline de transformation
-    def preprocess_sample(sample):
-        # sample est un tuple (image_pil, text_str) venant de .to_tuple("jpg", "txt")
-        image, text = sample
+        # Extract basic text labels from folder names or filenames
+        # Adjust logic depending on your actual dataset structure
+        self.captions = [self._get_label_from_path(p) for p in self.image_paths]
+
+    def _get_label_from_path(self, path):
+        # Example: data/train/mid_century_chair/001.jpg -> "mid century chair"
+        folder_name = os.path.basename(os.path.dirname(path))
+        return folder_name.replace("_", " ")
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        image_path = self.image_paths[idx]
+        caption = self.captions[idx]
         
-        # Application de l'augmentation (si définie)
-        if transform:
-            image = transform(image)
+        try:
+            image = Image.open(image_path).convert("RGB")
+        except Exception:
+            # Fallback for corrupted images
+            image = Image.new("RGB", (ModelConfig.IMAGE_SIZE, ModelConfig.IMAGE_SIZE))
         
-        # Le processeur CLIP gère la normalisation et la tokenization
-        # On retourne directement les tenseurs
-        inputs = processor(
-            text=[text],
-            images=image,
-            return_tensors="pt",
-            padding="max_length",
+        # Apply Data Augmentation
+        if self.transform:
+            image = self.transform(image)
+            
+        # Processor handles normalization and tokenization
+        # Note: CLIP expects specific inputs. 
+        # We assume transform output is a PIL Image, processor does ToTensor+Norm
+        inputs = self.processor(
+            text=[caption], 
+            images=image, 
+            return_tensors="pt", 
+            padding="max_length", 
             truncation=True
         )
         
@@ -51,45 +66,20 @@ def get_wds_pipeline(
             "input_ids": inputs["input_ids"].squeeze(0)
         }
 
-    # 3. Construire le dataset WebDataset
-    # nodesplitter=wds.split_by_node permet le multi-GPU plus tard si besoin
-    dataset = wds.WebDataset(shards, nodesplitter=wds.split_by_node)
-    
-    if is_train:
-        # Mélange important pour l'entraînement
-        dataset = dataset.shuffle(1000)
-    
-    dataset = (
-        dataset
-        .decode("pil")          # Convertit automatiquement les bytes "jpg" en PIL Image
-        .to_tuple("jpg", "txt") # Extrait seulement l'image et le prompt (ignore le json pour l'instant)
-        .map(preprocess_sample) # Applique CLIP Processor
-    )
-
-    # 4. Batching
-    # WebDataset gère mieux le batching s'il est fait dans le pipeline ou via le DataLoader standard.
-    # Ici, nous allons utiliser le DataLoader standard de PyTorch pour le batching final,
-    # car cela facilite l'intégration avec `accelerate` ou `bitsandbytes`.
-    # Cependant, nous devons ajouter une longueur artificielle pour que tqdm fonctionne.
-    
-    dataset = dataset.with_length(epoch_len)
-    
-    return dataset
-
 def get_transforms(aug_type="simple"):
-    # (Identique à avant, mais assurez-vous de retourner une PIL Image à la fin pour le processor)
     if aug_type == "simple":
         return transforms.Compose([
-            transforms.Resize((224, 224)),
+            transforms.Resize((ModelConfig.IMAGE_SIZE, ModelConfig.IMAGE_SIZE)), # Resize first
             transforms.RandomHorizontalFlip(),
-            transforms.RandomCrop(224, padding=4),
+            transforms.RandomCrop(ModelConfig.IMAGE_SIZE, padding=4),
+            # Note: ToTensor/Normalize is done by CLIPProcessor usually, 
+            # but if using Augmentation, we often pass PIL to Processor
         ])
     elif aug_type == "advanced":
         return transforms.Compose([
-            transforms.Resize((224, 224)),
+            transforms.Resize((ModelConfig.IMAGE_SIZE, ModelConfig.IMAGE_SIZE)),
             transforms.TrivialAugmentWide(),
-            transforms.ToTensor(), 
+            transforms.ToTensor(), # Required for RandomErasing
             transforms.RandomErasing(p=0.2, scale=(0.02, 0.2)),
-            transforms.ToPILImage() 
+            transforms.ToPILImage() # Convert back so Processor can handle it
         ])
-    return None

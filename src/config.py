@@ -88,6 +88,48 @@ class TrainingConfig:
     EVAL_EVERY_N_STEPS = 500
 
 
+class TrainingRunConfig:
+    """Runtime defaults for training scripts."""
+
+    DATA_DIR = "/tmp/furniture_data"
+    OUTPUT_DIR = "./checkpoints"
+    S3_BUCKET = "furniture-clip-dataset-v1"
+    S3_PREFIX = "dataset-clip/"
+    CHECKPOINTS_PREFIX = "checkpoints"
+
+    SCENARIO_CHOICES = ["zero_shot", "linear_probe", "dual_lora", "vision_lora", "text_lora"]
+    DEFAULT_SCENARIO = "dual_lora"
+
+    EPOCHS = 10
+    TRAIN_SPLIT = 0.9
+    EFFECTIVE_BATCH_SIZE = 1024
+    MICRO_BATCH_SIZE = 0
+    NUM_WORKERS = 4
+    SEED = 42
+
+    LR = 1e-4
+    WEIGHT_DECAY = 0.1
+    WARMUP_STEPS = 100
+    GRAD_CLIP = 1.0
+    AUGMENTATION_DEFAULT = "simple"
+    AUGMENTATION_CHOICES = ["simple", "advanced"]
+
+    LORA_R = 16
+    LORA_ALPHA = 32
+    LORA_DROPOUT = 0.05
+    LORA_TARGET_MODULES = ["q_proj", "v_proj"]
+
+    MINI_TRAIN_LIMIT = 1000
+    MODEL_ID = ModelConfig.MODEL_NAME
+
+    BATCH_SEARCH_START = 16
+    BATCH_SEARCH_MAX = 512
+    BATCH_SEARCH_FALLBACK = 32
+    BATCH_SEARCH_MIN = 32
+
+    WANDB_PROJECT = "clip-furniture-finetune"
+
+
 class CleaningConfig:
     """Configuration for GPT-5 nano VLM batch cleaning."""
     

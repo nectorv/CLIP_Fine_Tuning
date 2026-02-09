@@ -1,0 +1,31 @@
+🔄 Syncing data from s3://furniture-clip-dataset-v1/data/train to /tmp/furniture_data...
+✅ Sync complete.
+🏗️ Building model for scenario: dual_lora
+config.json: 4.19kB [00:00, 8.96MB/s]
+pytorch_model.bin: 100%|███████████████████████████████████████████████████████████████████████████| 605M/605M [00:07<00:00, 84.9MB/s]
+model.safetensors: 100%|████████████████████████████████████████████████████████████████████████████| 605M/605M [00:03<00:00, 190MB/s]
+Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. `use_fast=True` will be the default behavior in v4.52, even if the model was saved with a slow processor. This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`.
+preprocessor_config.json: 100%|███████████████████████████████████████████████████████████████████████| 316/316 [00:00<00:00, 768kB/s]
+tokenizer_config.json: 100%|█████████████████████████████████████████████████████████████████████████| 592/592 [00:00<00:00, 2.64MB/s]
+vocab.json: 862kB [00:00, 75.7MB/s]
+merges.txt: 525kB [00:00, 123MB/s]
+tokenizer.json: 2.22MB [00:00, 193MB/s]
+special_tokens_map.json: 100%|███████████████████████████████████████████████████████████████████████| 389/389 [00:00<00:00, 1.68MB/s]
+🔓 Applied LoRA to encoders + Unfrozen Projections
+⚠️ MINI TRAIN MODE: Using only 1000 images.
+🔍 Searching for max batch size...
+⚠️ Error during batch search: num_samples should be a positive integer value, but got num_samples=0
+🎯 Max physical batch size set to: 32
+⚙️ Config: Micro Batch=32, Accum Steps=32 => Effective=1024
+Traceback (most recent call last):
+  File "/workspaces/CLIP_Fine_Tuning/src/training/main.py", line 135, in <module>
+    main()
+  File "/workspaces/CLIP_Fine_Tuning/src/training/main.py", line 44, in main
+    train_loader = DataLoader(train_dataset, batch_size=micro_bs, shuffle=True, num_workers=args.num_workers, drop_last=True)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codespace/.local/lib/python3.12/site-packages/torch/utils/data/dataloader.py", line 394, in __init__
+    sampler = RandomSampler(dataset, generator=generator)  # type: ignore[arg-type]
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/codespace/.local/lib/python3.12/site-packages/torch/utils/data/sampler.py", line 149, in __init__
+    raise ValueError(
+ValueError: num_samples should be a positive integer value, but got num_samples=0
