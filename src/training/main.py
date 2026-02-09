@@ -5,10 +5,10 @@ from torch.cuda.amp import GradScaler, autocast
 import wandb
 import os
 
-from arg_pars import parse_args
-from utils import S3Manager, EarlyStopper, find_max_batch_size
-from data import FurnitureDataset, get_transforms
-from model import get_model
+from src.training.arg_pars import parse_args
+from src.training.utils import S3Manager, EarlyStopper, find_max_batch_size
+from src.training.data import FurnitureDataset, get_transforms
+from src.training.model import get_model
 from src.config import TrainingRunConfig
 
 def main():
