@@ -73,8 +73,10 @@ class S3Manager:
         extracted = 0
         for tar_path in tar_paths:
             try:
+                # Extract each shard into its own split directory (train/validation/test)
+                target_dir = os.path.dirname(tar_path)
                 with tarfile.open(tar_path, "r") as tar:
-                    tar.extractall(path=local_dir)
+                    tar.extractall(path=target_dir)
                 extracted += 1
             except Exception as e:
                 print(f"⚠️ Failed to extract {tar_path}: {e}")
