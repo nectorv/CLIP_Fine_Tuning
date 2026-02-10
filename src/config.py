@@ -116,7 +116,7 @@ class TrainingRunConfig:
     LORA_R = 16
     LORA_ALPHA = 32
     LORA_DROPOUT = 0.05
-    LORA_TARGET_MODULES = ["q_proj", "v_proj"]
+    LORA_TARGET_MODULES = ["q_proj", "k_proj", "v_proj", "out_proj", "fc1", "fc2"]
 
     MODEL_ID = ModelConfig.MODEL_NAME
 
