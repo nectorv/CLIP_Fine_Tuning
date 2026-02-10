@@ -3,7 +3,6 @@ import shutil
 import tarfile
 import boto3
 import torch
-import glob
 from tqdm import tqdm
 
 from src.config import TrainingRunConfig
@@ -48,7 +47,7 @@ class S3Manager:
             self.s3.download_file(self.bucket_name, s3_path, local_path)
             print(f"⬇️ Checkpoint downloaded from s3://{self.bucket_name}/{s3_path}")
             return True
-        except Exception as e:
+        except Exception:
             print("⚠️ No checkpoint found in S3 to resume from.")
             return False
 

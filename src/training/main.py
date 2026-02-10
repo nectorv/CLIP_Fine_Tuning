@@ -78,13 +78,14 @@ def main():
     scaler = GradScaler()
     early_stopper = EarlyStopper(patience=2)
 
-    # 5. Resume Checkpoint Logic
+    # 5. Checkpoint Setup
     start_epoch = 0
     checkpoint_name = f"{args.scenario}_checkpoint.pt"
     os.makedirs(args.output_dir, exist_ok=True)
     local_checkpoint_path = os.path.join(args.output_dir, checkpoint_name)
-    if args.resume_from_checkpoint:
-        if s3_mgr.download_checkpoint(f"{TrainingRunConfig.CHECKPOINTS_PREFIX}/{checkpoint_name}", local_checkpoint_path):
+    if args.enable_s3_checkpoints and args.resume_from_checkpoint:
+        s3_checkpoint_path = f"{TrainingRunConfig.CHECKPOINTS_PREFIX}/{checkpoint_name}"
+        if s3_mgr.download_checkpoint(s3_checkpoint_path, local_checkpoint_path):
             checkpoint = torch.load(local_checkpoint_path)
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -135,7 +136,7 @@ def main():
         print(f"Epoch {epoch} | Val Loss: {avg_val_loss:.4f}")
         wandb.log({"val_loss": avg_val_loss, "epoch": epoch})
 
-        # Save Checkpoint (Local then S3)
+        # Save Checkpoint
         ckpt = {
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
@@ -143,7 +144,9 @@ def main():
             'loss': avg_val_loss
         }
         torch.save(ckpt, local_checkpoint_path)
-        s3_mgr.upload_checkpoint(local_checkpoint_path, f"{TrainingRunConfig.CHECKPOINTS_PREFIX}/{checkpoint_name}")
+        if args.enable_s3_checkpoints:
+            s3_checkpoint_path = f"{TrainingRunConfig.CHECKPOINTS_PREFIX}/{checkpoint_name}"
+            s3_mgr.upload_checkpoint(local_checkpoint_path, s3_checkpoint_path)
 
         # Early Stopping
         if early_stopper.early_stop(avg_val_loss):

@@ -40,7 +40,7 @@ The training system is designed to fine-tune OpenAI's CLIP model (Vision-Languag
 │                                      ↓                        │
 │  Validation & Monitoring (WandB)                             │
 │                                      ↓                        │
-│  Checkpoint Management (Local + S3)                          │
+│  Checkpoint Management (Local + Optional S3)                 │
 │                                                               │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -72,7 +72,7 @@ Implements WebDataset-based data loading:
 
 ### 4. **utils.py** - Utility Functions
 Provides support utilities:
-- **S3Manager**: Download/upload datasets and checkpoints
+- **S3Manager**: Download datasets and optionally upload/resume checkpoints
 - **EarlyStopper**: Early stopping logic
 - **find_max_batch_size()**: Automatic batch size discovery
 
@@ -360,18 +360,10 @@ s3_mgr.download_dataset(s3_prefix, local_dir)
 # Uses: aws s3 sync (faster than boto3 loop for 50k+ files)
 ```
 
-#### Upload Checkpoint
+#### Optional Checkpoints (S3)
 ```python
-s3_mgr.upload_checkpoint(local_path, s3_path)
-# Stores: epoch, model weights, optimizer state
-```
-
-#### Resume from Checkpoint
-```python
-checkpoint = torch.load(checkpoint_name)
-model.load_state_dict(checkpoint['model_state_dict'])
-optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-start_epoch = checkpoint['epoch'] + 1
+if args.enable_s3_checkpoints:
+    s3_mgr.upload_checkpoint(local_path, s3_path)
 ```
 
 ### Checkpoint Format
@@ -427,7 +419,8 @@ checkpoint = {
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `wandb_project` | `clip-furniture-finetune` | W&B project name |
-| `resume_from_checkpoint` | False | Resume training |
+| `enable_s3_checkpoints` | False | Enable upload/resume via S3 checkpoints |
+| `resume_from_checkpoint` | False | Resume from S3 checkpoint (requires `enable_s3_checkpoints`) |
 
 ---
 
@@ -475,7 +468,7 @@ python main.py \
 
 #### 7. **Checkpoint Management**
 - Saves locally: `{scenario}_checkpoint.pt`
-- Uploads to S3: `checkpoints/{scenario}_checkpoint.pt`
+- Optionally uploads to S3 when `enable_s3_checkpoints` is set
 - Tracks: epoch, model weights, optimizer state, loss
 
 #### 8. **Early Stopping**

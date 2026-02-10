@@ -34,9 +34,10 @@ def parse_args():
     parser.add_argument("--lora_alpha", type=int, default=TrainingRunConfig.LORA_ALPHA)
     parser.add_argument("--lora_dropout", type=float, default=TrainingRunConfig.LORA_DROPOUT)
 
-    # --- WandB & Resume ---
+    # --- WandB & Checkpointing ---
     parser.add_argument("--wandb_project", type=str, default=TrainingRunConfig.WANDB_PROJECT)
-    parser.add_argument("--resume_from_checkpoint", action="store_true", help="Resume from S3 if available")
+    parser.add_argument("--enable_s3_checkpoints", action="store_true", help="Enable checkpoint upload/resume via S3")
+    parser.add_argument("--resume_from_checkpoint", action="store_true", help="Resume from S3 checkpoint if available")
 
     args = parser.parse_args()
     return args
