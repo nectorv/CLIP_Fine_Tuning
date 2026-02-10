@@ -19,30 +19,31 @@ def get_model(scenario, lora_r=16, lora_alpha=32, lora_dropout=0.05):
         return model, processor # Everything frozen
 
     elif scenario == "linear_probe":
-        # Unfreeze ONLY projections
-        for param in model.visual_projection.parameters():
-            param.requires_grad = True
-        for param in model.text_projection.parameters():
-            param.requires_grad = True
-        print("🔓 Unfrozen: Projections only")
-
-    elif scenario == "dual_lora":
-        # Unfreeze projections fully
-        for param in model.visual_projection.parameters():
-            param.requires_grad = True
-        for param in model.text_projection.parameters():
-            param.requires_grad = True
-            
-        # Apply LoRA to Backbones
+        # Apply LoRA to projections only
+        projection_targets = ["visual_projection", "text_projection"]
         config = LoraConfig(
             r=lora_r,
             lora_alpha=lora_alpha,
-            target_modules=TrainingRunConfig.LORA_TARGET_MODULES, # Targets Attention in both ViT and Text
+            target_modules=projection_targets,
             lora_dropout=lora_dropout,
             bias="none"
         )
         model = get_peft_model(model, config)
-        print("🔓 Applied LoRA to encoders + Unfrozen Projections")
+        print("🔓 Applied LoRA: Projections only")
+
+    elif scenario == "dual_lora":
+        # Apply LoRA to backbones + projections
+        projection_targets = ["visual_projection", "text_projection"]
+        target_modules = TrainingRunConfig.LORA_TARGET_MODULES + projection_targets
+        config = LoraConfig(
+            r=lora_r,
+            lora_alpha=lora_alpha,
+            target_modules=target_modules, # Targets Attention in both ViT and Text + projections
+            lora_dropout=lora_dropout,
+            bias="none"
+        )
+        model = get_peft_model(model, config)
+        print("🔓 Applied LoRA to encoders + projections")
 
     # Add logic for vision_lora / text_lora similarly if needed
 
