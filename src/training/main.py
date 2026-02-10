@@ -1,3 +1,4 @@
+import time
 import torch
 import bitsandbytes as bnb
 from torch.utils.data import DataLoader
@@ -95,6 +96,7 @@ def main():
     # 6. Training Loop
     print("🚀 Starting Training...")
     for epoch in range(start_epoch, args.epochs):
+        epoch_start = time.perf_counter()
         model.train()
         total_loss = 0
         
@@ -133,7 +135,8 @@ def main():
                 val_loss += outputs.loss.item()
         
         avg_val_loss = val_loss / len(val_loader)
-        print(f"Epoch {epoch} | Val Loss: {avg_val_loss:.4f}")
+        epoch_duration = time.perf_counter() - epoch_start
+        print(f"Epoch {epoch} | Val Loss: {avg_val_loss:.4f} | Time: {epoch_duration:.2f}s")
         wandb.log({"val_loss": avg_val_loss, "epoch": epoch})
 
         # Save Checkpoint
