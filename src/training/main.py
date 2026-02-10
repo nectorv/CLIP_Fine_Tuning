@@ -1,6 +1,6 @@
 import torch
 import bitsandbytes as bnb
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
 import wandb
 import os
@@ -28,25 +28,27 @@ def main():
     param_device = next(model.parameters()).device
     print(f"🧠 Model loaded on device: {param_device}")
 
-    full_dataset = FurnitureDataset(args.data_dir, processor, transform=transform, mini=args.mini_train)
+    train_dir = os.path.join(args.data_dir, "mini_train" if args.mini_train else "train")
+    val_dir = os.path.join(args.data_dir, "validation")
 
-    num_samples = len(full_dataset)
-    if num_samples == 0:
+    test_dir = os.path.join(args.data_dir, "test")
+
+    train_dataset = FurnitureDataset(train_dir, processor, transform=transform)
+    val_dataset = FurnitureDataset(val_dir, processor, transform=transform)
+    test_dataset = FurnitureDataset(test_dir, processor, transform=transform)
+
+    if len(train_dataset) == 0:
         raise ValueError(
-            "No images found after S3 sync. Check --s3_bucket, --s3_prefix, and --data_dir."
+            f"No images found in {train_dir}. Check --s3_bucket, --s3_prefix, and --data_dir."
         )
-    if num_samples < 2:
+    if len(val_dataset) == 0:
         raise ValueError(
-            "Dataset too small to split train/val. Need at least 2 images."
+            f"No images found in {val_dir}. Validation folder is required."
         )
-    
-    # Train/Val Split
-    train_size = max(1, int(TrainingRunConfig.TRAIN_SPLIT * num_samples))
-    val_size = num_samples - train_size
-    if val_size == 0:
-        val_size = 1
-        train_size = num_samples - 1
-    train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+    if len(test_dataset) == 0:
+        raise ValueError(
+            f"No images found in {test_dir}. Test folder is required for evaluation."
+        )
 
     # 3. Dynamic Batch Size
     if args.micro_batch_size == 0:
@@ -59,6 +61,7 @@ def main():
 
     train_loader = DataLoader(train_dataset, batch_size=micro_bs, shuffle=True, num_workers=args.num_workers, drop_last=True)
     val_loader = DataLoader(val_dataset, batch_size=micro_bs, shuffle=False, num_workers=args.num_workers)
+    test_loader = DataLoader(test_dataset, batch_size=micro_bs, shuffle=False, num_workers=args.num_workers)
 
     # 4. Optimizer & Loss
     # Use 8-bit AdamW
@@ -146,7 +149,21 @@ def main():
         if early_stopper.early_stop(avg_val_loss):
             print("🛑 Early Stopping triggered")
             break
-            
+
+    # 7. Final Test Evaluation
+    model.eval()
+    test_loss = 0
+    with torch.no_grad():
+        for batch in test_loader:
+            input_ids = batch["input_ids"].to(device)
+            pixel_values = batch["pixel_values"].to(device)
+            outputs = model(input_ids=input_ids, pixel_values=pixel_values, return_loss=True)
+            test_loss += outputs.loss.item()
+
+    avg_test_loss = test_loss / len(test_loader)
+    print(f"Test Loss: {avg_test_loss:.4f}")
+    wandb.log({"test_loss": avg_test_loss})
+
     wandb.finish()
 
 if __name__ == "__main__":

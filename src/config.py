@@ -101,7 +101,6 @@ class TrainingRunConfig:
     DEFAULT_SCENARIO = "dual_lora"
 
     EPOCHS = 10
-    TRAIN_SPLIT = 0.9
     EFFECTIVE_BATCH_SIZE = 1024
     MICRO_BATCH_SIZE = 0
     NUM_WORKERS = 4
@@ -119,7 +118,6 @@ class TrainingRunConfig:
     LORA_DROPOUT = 0.05
     LORA_TARGET_MODULES = ["q_proj", "v_proj"]
 
-    MINI_TRAIN_LIMIT = 1000
     MODEL_ID = ModelConfig.MODEL_NAME
 
     BATCH_SEARCH_START = 16

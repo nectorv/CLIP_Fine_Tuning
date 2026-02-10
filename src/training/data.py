@@ -2,31 +2,28 @@ import os
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
-from transformers import CLIPProcessor
-
-from src.config import ModelConfig, TrainingRunConfig
+from src.config import ModelConfig
 
 class FurnitureDataset(Dataset):
-    def __init__(self, data_dir, processor, transform=None, mini=False):
+    def __init__(self, data_dir, processor, transform=None):
         self.data_dir = data_dir
         self.processor = processor
         self.transform = transform
-        
+
         # Load all image paths
-        self.image_paths = []
-        # Supposons une structure dossier : classe/image.jpg
-        for root, _, files in os.walk(data_dir):
-            for file in files:
-                if file.endswith(('jpg', 'jpeg', 'png')):
-                    self.image_paths.append(os.path.join(root, file))
-        
-        if mini:
-            print(f"⚠️ MINI TRAIN MODE: Using only {TrainingRunConfig.MINI_TRAIN_LIMIT} images.")
-            self.image_paths = self.image_paths[:TrainingRunConfig.MINI_TRAIN_LIMIT]
+        self.image_paths = self._collect_image_paths(data_dir)
 
         # Extract basic text labels from folder names or filenames
         # Adjust logic depending on your actual dataset structure
         self.captions = [self._get_label_from_path(p) for p in self.image_paths]
+
+    def _collect_image_paths(self, data_dir):
+        image_paths = []
+        for root, _, files in os.walk(data_dir):
+            for file in files:
+                if file.lower().endswith(("jpg", "jpeg", "png")):
+                    image_paths.append(os.path.join(root, file))
+        return sorted(image_paths)
 
     def _get_label_from_path(self, path):
         # Example: data/train/mid_century_chair/001.jpg -> "mid century chair"
