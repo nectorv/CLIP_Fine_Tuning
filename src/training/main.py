@@ -1,4 +1,5 @@
 import time
+import math
 import torch
 import bitsandbytes as bnb
 from torch.utils.data import DataLoader
@@ -58,6 +59,10 @@ def main():
         micro_bs = args.micro_batch_size
     
     grad_accum_steps = args.effective_batch_size // micro_bs
+    if grad_accum_steps < 1:
+        raise ValueError(
+            f"effective_batch_size ({args.effective_batch_size}) must be >= micro_batch_size ({micro_bs})."
+        )
     print(f"⚙️ Config: Micro Batch={micro_bs}, Accum Steps={grad_accum_steps} => Effective={micro_bs*grad_accum_steps}")
 
     train_loader = DataLoader(train_dataset, batch_size=micro_bs, shuffle=True, num_workers=args.num_workers, drop_last=True)
@@ -73,7 +78,8 @@ def main():
     )
     
     # Warmup Scheduler
-    total_steps = len(train_loader) * args.epochs
+    updates_per_epoch = math.ceil(len(train_loader) / grad_accum_steps)
+    total_steps = updates_per_epoch * args.epochs
     scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=args.lr, total_steps=total_steps, pct_start=0.1)
     
     scaler = GradScaler()
@@ -93,6 +99,9 @@ def main():
             start_epoch = checkpoint['epoch'] + 1
             print(f"⏩ Resuming from epoch {start_epoch}")
 
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"🔥 Total Trainable Params: {trainable_params}")
+
     # 6. Training Loop
     print("🚀 Starting Training...")
     for epoch in range(start_epoch, args.epochs):
@@ -100,6 +109,7 @@ def main():
         model.train()
         total_loss = 0
         
+        accum_steps = 0
         for step, batch in enumerate(train_loader):
             input_ids = batch["input_ids"].to(device)
             pixel_values = batch["pixel_values"].to(device)
@@ -111,8 +121,9 @@ def main():
 
             # Backward
             scaler.scale(loss).backward()
+            accum_steps += 1
 
-            if (step + 1) % grad_accum_steps == 0:
+            if accum_steps == grad_accum_steps or (step + 1) == len(train_loader):
                 # Gradient Clipping
                 scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
@@ -121,6 +132,7 @@ def main():
                 scaler.update()
                 optimizer.zero_grad()
                 scheduler.step()
+                accum_steps = 0
                 
                 wandb.log({"train_loss": loss.item() * grad_accum_steps, "lr": scheduler.get_last_lr()[0]})
 
