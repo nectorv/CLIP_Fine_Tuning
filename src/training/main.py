@@ -180,6 +180,10 @@ def main():
         # Validation
         model.eval()
         val_loss = 0
+        val_img_to_text = 0.0
+        val_text_to_img = 0.0
+        val_batch_acc = 0.0
+        val_steps = 0
         with torch.no_grad():
             for batch in val_loader:
                 input_ids = batch["input_ids"].to(device)
@@ -192,11 +196,28 @@ def main():
                     return_loss=True
                 )
                 val_loss += outputs.loss.item()
+                img_to_text_acc, text_to_img_acc, batch_acc = compute_batch_alignment(
+                    outputs.logits_per_image,
+                    outputs.logits_per_text
+                )
+                val_img_to_text += img_to_text_acc.item()
+                val_text_to_img += text_to_img_acc.item()
+                val_batch_acc += batch_acc.item()
+                val_steps += 1
         
         avg_val_loss = val_loss / len(val_loader)
+        avg_val_img_to_text = val_img_to_text / max(1, val_steps)
+        avg_val_text_to_img = val_text_to_img / max(1, val_steps)
+        avg_val_batch_acc = val_batch_acc / max(1, val_steps)
         epoch_duration = time.perf_counter() - epoch_start
         print(f"Epoch {epoch} | Val Loss: {avg_val_loss:.4f} | Time: {epoch_duration:.2f}s")
-        wandb.log({"val_loss": avg_val_loss, "epoch": epoch})
+        wandb.log({
+            "val_loss": avg_val_loss,
+            "val_batch_acc": avg_val_batch_acc,
+            "val_batch_acc_img_to_text": avg_val_img_to_text,
+            "val_batch_acc_text_to_img": avg_val_text_to_img,
+            "epoch": epoch
+        })
 
         # Save Checkpoint
         ckpt = {
