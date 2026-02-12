@@ -91,6 +91,7 @@ def main():
 
     train_loader = DataLoader(train_dataset, batch_size=micro_bs, shuffle=True, num_workers=args.num_workers, drop_last=True)
     val_loader = DataLoader(val_dataset, batch_size=micro_bs, shuffle=False, num_workers=args.num_workers)
+    val_eval_loader = DataLoader(val_dataset, batch_size=256, shuffle=False, num_workers=args.num_workers)
     test_loader = DataLoader(test_dataset, batch_size=micro_bs, shuffle=False, num_workers=args.num_workers)
 
     # 4. Optimizer & Loss
@@ -196,6 +197,17 @@ def main():
                     return_loss=True
                 )
                 val_loss += outputs.loss.item()
+        with torch.no_grad():
+            for batch in val_eval_loader:
+                input_ids = batch["input_ids"].to(device)
+                pixel_values = batch["pixel_values"].to(device)
+                attention_mask = batch["attention_mask"].to(device)
+                outputs = model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    pixel_values=pixel_values,
+                    return_loss=True
+                )
                 img_to_text_acc, text_to_img_acc, batch_acc = compute_batch_alignment(
                     outputs.logits_per_image,
                     outputs.logits_per_text
@@ -214,8 +226,8 @@ def main():
         wandb.log({
             "val_loss": avg_val_loss,
             "val_batch_acc": avg_val_batch_acc,
-            "val_batch_acc_img_to_text": avg_val_img_to_text,
-            "val_batch_acc_text_to_img": avg_val_text_to_img,
+            "val_batch_acc_img_to_text_256": avg_val_img_to_text,
+            "val_batch_acc_text_to_img_256": avg_val_text_to_img,
             "epoch": epoch
         })
 
