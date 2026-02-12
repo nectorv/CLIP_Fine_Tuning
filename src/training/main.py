@@ -13,6 +13,14 @@ from src.training.data import FurnitureDataset, get_transforms
 from src.training.model import get_model
 from src.config import TrainingRunConfig
 
+def compute_batch_alignment(logits_per_image, logits_per_text):
+    batch_size = logits_per_image.size(0)
+    targets = torch.arange(batch_size, device=logits_per_image.device)
+    img_to_text = (logits_per_image.argmax(dim=1) == targets).float().mean()
+    text_to_img = (logits_per_text.argmax(dim=1) == targets).float().mean()
+    batch_acc = (img_to_text + text_to_img) * 0.5
+    return img_to_text, text_to_img, batch_acc
+
 def main():
     args = parse_args()
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -118,6 +126,11 @@ def main():
             with autocast():
                 outputs = model(input_ids=input_ids, pixel_values=pixel_values, return_loss=True)
                 loss = outputs.loss / grad_accum_steps # Scale loss
+            with torch.no_grad():
+                img_to_text_acc, text_to_img_acc, batch_acc = compute_batch_alignment(
+                    outputs.logits_per_image,
+                    outputs.logits_per_text
+                )
 
             # Backward
             scaler.scale(loss).backward()
@@ -134,7 +147,13 @@ def main():
                 scheduler.step()
                 accum_steps = 0
                 
-                wandb.log({"train_loss": loss.item() * grad_accum_steps, "lr": scheduler.get_last_lr()[0]})
+                wandb.log({
+                    "train_loss": loss.item() * grad_accum_steps,
+                    "lr": scheduler.get_last_lr()[0],
+                    "batch_acc": batch_acc.item(),
+                    "batch_acc_img_to_text": img_to_text_acc.item(),
+                    "batch_acc_text_to_img": text_to_img_acc.item()
+                })
 
         # Validation
         model.eval()
