@@ -97,7 +97,7 @@ class TrainingRunConfig:
     S3_PREFIX = "dataset-clip/"
     CHECKPOINTS_PREFIX = "checkpoints"
 
-    SCENARIO_CHOICES = ["zero_shot", "linear_probe", "dual_lora", "vision_lora", "text_lora"]
+    SCENARIO_CHOICES = ["zero_shot", "linear_probe", "dual_lora", "unfrozen_targets", "vision_lora", "text_lora"]
     DEFAULT_SCENARIO = "dual_lora"
 
     EPOCHS = 10

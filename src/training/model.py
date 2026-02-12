@@ -45,6 +45,15 @@ def get_model(scenario, lora_r=16, lora_alpha=32, lora_dropout=0.05):
         model = get_peft_model(model, config)
         print("🔓 Applied LoRA to encoders + projections")
 
+    elif scenario == "unfrozen_targets":
+        # Unfreeze target modules (no LoRA)
+        projection_targets = ["visual_projection", "text_projection"]
+        target_modules = TrainingRunConfig.LORA_TARGET_MODULES + projection_targets
+        for name, param in model.named_parameters():
+            if any(target in name for target in target_modules):
+                param.requires_grad = True
+        print("🔓 Unfroze target modules: encoders + projections")
+
     # Add logic for vision_lora / text_lora similarly if needed
 
     return model, processor
