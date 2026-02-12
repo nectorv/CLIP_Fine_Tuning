@@ -9,7 +9,7 @@ import os
 
 from src.training.arg_pars import parse_args
 from src.training.utils import S3Manager, EarlyStopper, find_max_batch_size
-from src.training.data import FurnitureDataset, get_transforms
+from src.training.data import FurnitureDataset, get_transforms, get_eval_transforms
 from src.training.model import get_model
 from src.config import TrainingRunConfig
 
@@ -33,6 +33,7 @@ def main():
     s3_mgr.download_dataset(args.s3_prefix, args.data_dir)
     
     transform = get_transforms(args.augmentation)
+    eval_transform = get_eval_transforms()
     model, processor = get_model(args.scenario, args.lora_r)
     model.to(device)
     param_device = next(model.parameters()).device
@@ -44,8 +45,23 @@ def main():
     test_dir = os.path.join(args.data_dir, "test")
 
     train_dataset = FurnitureDataset(train_dir, processor, transform=transform)
-    val_dataset = FurnitureDataset(val_dir, processor, transform=transform)
-    test_dataset = FurnitureDataset(test_dir, processor, transform=transform)
+    val_dataset = FurnitureDataset(val_dir, processor, transform=eval_transform)
+    test_dataset = FurnitureDataset(test_dir, processor, transform=eval_transform)
+
+    if args.sanity_check_samples > 0:
+        sample_count = args.sanity_check_samples
+        print("🔎 Sanity check samples:")
+        for split_name, dataset in ("train", train_dataset), ("val", val_dataset), ("test", test_dataset):
+            split_size = len(dataset)
+            take = min(sample_count, split_size)
+            if take == 0:
+                print(f"  {split_name}: empty")
+                continue
+            print(f"  {split_name}: showing {take}/{split_size}")
+            for idx in range(take):
+                caption = dataset.captions[idx]
+                token_len = int(dataset[idx]["input_ids"].numel())
+                print(f"    [{idx}] tokens={token_len} caption=\"{caption[:160]}\"")
 
     if len(train_dataset) == 0:
         raise ValueError(
@@ -121,10 +137,16 @@ def main():
         for step, batch in enumerate(train_loader):
             input_ids = batch["input_ids"].to(device)
             pixel_values = batch["pixel_values"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
 
             # Mixed Precision Forward
             with autocast():
-                outputs = model(input_ids=input_ids, pixel_values=pixel_values, return_loss=True)
+                outputs = model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    pixel_values=pixel_values,
+                    return_loss=True
+                )
                 loss = outputs.loss / grad_accum_steps # Scale loss
             with torch.no_grad():
                 img_to_text_acc, text_to_img_acc, batch_acc = compute_batch_alignment(
@@ -162,7 +184,13 @@ def main():
             for batch in val_loader:
                 input_ids = batch["input_ids"].to(device)
                 pixel_values = batch["pixel_values"].to(device)
-                outputs = model(input_ids=input_ids, pixel_values=pixel_values, return_loss=True)
+                attention_mask = batch["attention_mask"].to(device)
+                outputs = model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    pixel_values=pixel_values,
+                    return_loss=True
+                )
                 val_loss += outputs.loss.item()
         
         avg_val_loss = val_loss / len(val_loader)
@@ -194,7 +222,13 @@ def main():
         for batch in test_loader:
             input_ids = batch["input_ids"].to(device)
             pixel_values = batch["pixel_values"].to(device)
-            outputs = model(input_ids=input_ids, pixel_values=pixel_values, return_loss=True)
+            attention_mask = batch["attention_mask"].to(device)
+            outputs = model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                pixel_values=pixel_values,
+                return_loss=True
+            )
             test_loss += outputs.loss.item()
 
     avg_test_loss = test_loss / len(test_loader)

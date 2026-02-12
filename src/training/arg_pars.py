@@ -38,6 +38,7 @@ def parse_args():
     parser.add_argument("--wandb_project", type=str, default=TrainingRunConfig.WANDB_PROJECT)
     parser.add_argument("--enable_s3_checkpoints", action="store_true", help="Enable checkpoint upload/resume via S3")
     parser.add_argument("--resume_from_checkpoint", action="store_true", help="Resume from S3 checkpoint if available")
+    parser.add_argument("--sanity_check_samples", type=int, default=0, help="Print N sample captions and token lengths")
 
     args = parser.parse_args()
     return args
