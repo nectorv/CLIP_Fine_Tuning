@@ -17,6 +17,7 @@ def parse_args():
                         choices=TrainingRunConfig.SCENARIO_CHOICES,
                         help="Ablation study scenario")
     parser.add_argument("--epochs", type=int, default=TrainingRunConfig.EPOCHS)
+    parser.add_argument("--patience", type=int, default=2, help="Early stopping patience (epochs without improvement)")
     parser.add_argument("--effective_batch_size", type=int, default=TrainingRunConfig.EFFECTIVE_BATCH_SIZE, help="Target accumulated batch size")
     parser.add_argument("--micro_batch_size", type=int, default=TrainingRunConfig.MICRO_BATCH_SIZE, help="Physical batch size (0 = auto-find)")
     parser.add_argument("--num_workers", type=int, default=TrainingRunConfig.NUM_WORKERS)

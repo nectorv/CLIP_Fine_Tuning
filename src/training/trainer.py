@@ -77,7 +77,7 @@ def train_and_evaluate(args, model, train_dataset, val_dataset, test_dataset, de
 
     optimizer, scheduler = setup_optimizer_and_scheduler(args, model, train_loader, grad_accum_steps)
     scaler = GradScaler()
-    early_stopper = EarlyStopper(patience=2)
+    early_stopper = EarlyStopper(patience=args.patience)
     start_epoch = load_checkpoint_if_available(args, s3_mgr, model, optimizer)
 
     print("🚀 Starting Training...")
