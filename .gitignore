@@ -5,3 +5,4 @@ temp/
 .env
 wandb/
 *.log
+.wandb/
